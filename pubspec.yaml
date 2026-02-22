@@ -1,0 +1,42 @@
+name: netcodex
+description: "An all-around tool for “offline-first” documentation, primarily designed for network professionals."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.10.4
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_markdown: ^0.7.5
+  cupertino_icons: ^1.0.8
+
+  # --- Phase 1: Core Infrastructure & Security ---
+  sqflite: ^2.3.0 
+  path_provider: ^2.1.2 
+  path: ^1.9.0
+  flutter_secure_storage: ^9.2.2 # Updated for better compatibility with newer OS
+  cryptography: ^2.5.0 
+
+  # --- Phase 2: Knowledge Base & Hardware ---
+  image_picker: ^1.0.7
+
+  # --- Phase 3 & 4: Network Tools & Export Strategy ---
+  archive: ^3.6.1
+  ipaddr: ^2.0.0
+  share_plus: ^10.1.0 # Updated for latest XFile and sharing support
+  file_picker: ^8.0.0 # NEW: Essential for importing .codex files
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
+  
+  assets:
+    - assets/templates/
+    - assets/images/
