@@ -11,6 +11,9 @@ import 'ip_intel_screen.dart';
 import 'go_bag_checklist.dart';
 import 'tool_sheets.dart';
 import 'migration_service.dart';
+import 'notes_screen.dart';
+import 'practice_screen.dart';
+import 'notes_vault.dart';
 
 final ValueNotifier<ThemeMode> themeNotifier = ValueNotifier(ThemeMode.dark);
 
@@ -425,6 +428,8 @@ class Dashboard extends StatelessWidget {
         crossAxisSpacing: 10,
         mainAxisSpacing: 10,
         children: [
+          _buildMenuCard(context, Icons.edit_note, "Notes", "Lectures & Concepts"),
+          _buildMenuCard(context, Icons.quiz, "Practice", "Exams & Flashcards"),
           _buildMenuCard(context, Icons.terminal, "Scripts", "Verified sequences"),
           _buildMenuCard(context, Icons.bug_report, "Issues", "Troubleshooting fixes"),
           _buildMenuCard(context, Icons.assignment, "Processes", "Deployment guidelines"),
@@ -448,6 +453,12 @@ class Dashboard extends StatelessWidget {
       child: InkWell(
         onTap: () {
           switch (title) {
+            case "Notes":
+              Navigator.push(context, MaterialPageRoute(builder: (context) => const NotesVaultScreen()));
+              break;
+            case "Practice":
+              Navigator.push(context, MaterialPageRoute(builder: (context) => const PracticeScreen()));
+              break;
             case "IP Intel":
               Navigator.push(context, MaterialPageRoute(builder: (context) => const IpIntelScreen()));
               break;
@@ -1343,6 +1354,16 @@ class GlobalSearchDelegate extends SearchDelegate {
       where: 'name LIKE ? COLLATE NOCASE OR category LIKE ? COLLATE NOCASE', whereArgs: ['%$q%', '%$q%']);
     combined.addAll(tools.map((e) => {...e, 'origin': 'Tool Sheet', 'display_title': e['name']}));
 
+    // 6. Search Lecture Notes
+    final notes = await db.query('notes', 
+      where: 'title LIKE ? OR content_text LIKE ? COLLATE NOCASE', 
+      whereArgs: ['%$q%', '%$q%']);
+    combined.addAll(notes.map((e) => {
+      ...e, 
+      'origin': 'Note', 
+      'display_title': e['title']
+    }));
+
     return combined;
   }
 
@@ -1352,6 +1373,7 @@ class GlobalSearchDelegate extends SearchDelegate {
       case 'process': return Icons.assignment;
       case 'infrastructure': return Icons.lan;
       case 'tool sheet': return Icons.handyman;
+      case 'note': return Icons.edit_note;
       default: return Icons.terminal;
     }
   }
@@ -1370,6 +1392,11 @@ class GlobalSearchDelegate extends SearchDelegate {
       Navigator.push(context, MaterialPageRoute(
         builder: (context) => ToolSheetScreen(tool: item),
       ));
+    } else if (origin == 'note') {
+        // Navigate to your specific Note Editor
+        Navigator.push(context, MaterialPageRoute(
+          builder: (context) => NotesScreen(note: item),
+        ));
     } else {
       Navigator.push(context, MaterialPageRoute(
         builder: (context) => DecryptionDetailView(

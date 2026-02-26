@@ -18,20 +18,40 @@ class DatabaseService {
     
     return await openDatabase(
       path,
-      // Version 5: Essential for cross-device portability and Decryption Error fix
-      version: 5, 
+      version: 7, 
       onCreate: _createTables,
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 4) {
           await _createLegacyTables(db);
         }
         if (oldVersion < 5) {
-          // Add metadata table for portable encryption context (Salt & Auth Anchor)
           await db.execute('''
             CREATE TABLE IF NOT EXISTS vault_metadata (
               id INTEGER PRIMARY KEY AUTOINCREMENT,
               config_key TEXT UNIQUE,
               config_value TEXT
+            )
+          ''');
+        }
+        if (oldVersion < 6) {
+          await db.execute('''
+            CREATE TABLE IF NOT EXISTS notes (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              title TEXT NOT NULL,
+              content_text TEXT NOT NULL, -- Renamed from content_json for clarity
+              last_modified TEXT NOT NULL
+            )
+          ''');
+        }
+        if (oldVersion < 7) {
+          await db.execute('''
+            CREATE TABLE IF NOT EXISTS practice_bank (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              question TEXT NOT NULL,
+              answer TEXT NOT NULL,
+              category TEXT,
+              last_reviewed TEXT,
+              last_modified TEXT -- Added to match your saveCard logic
             )
           ''');
         }
@@ -121,6 +141,27 @@ class DatabaseService {
         config_value TEXT
       )
     ''');
+
+    // 8. LECTURE NOTES
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS notes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        content_text TEXT NOT NULL,
+        last_modified TEXT NOT NULL
+      )
+    ''');
+    // 9. PRACTICE ENGINE (Flashcards & Exam Bank)
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS practice_bank (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        question TEXT NOT NULL,
+        answer TEXT NOT NULL,
+        category TEXT,
+        last_reviewed TEXT,
+        last_modified TEXT -- Add this line
+      )
+    ''');
   }
 
   Future<void> _createLegacyTables(Database db) async {
@@ -205,5 +246,75 @@ class LedgerService {
       where: 'id = ?',
       whereArgs: [id],
     );
+  }
+}
+
+class NoteService {
+  final dbService = DatabaseService();
+
+  Future<int> saveNote(String title, String contentText) async {
+    final db = await dbService.database;
+    return await db.insert('notes', {
+      'title': title,
+      'content_text': contentText,
+      'last_modified': DateTime.now().toIso8601String(),
+    });
+  }
+
+  Future<List<Map<String, dynamic>>> getAllNotes() async {
+    final db = await dbService.database;
+    return await db.query('notes', orderBy: 'last_modified DESC');
+  }
+
+  Future<int> updateNote(int id, String title, String contentText) async {
+    final db = await dbService.database;
+    return await db.update(
+      'notes',
+      {
+        'title': title,
+        'content_text': contentText,
+        'last_modified': DateTime.now().toIso8601String(),
+      },
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<int> deleteNote(int id) async {
+    final db = await dbService.database;
+    return await db.delete('notes', where: 'id = ?', whereArgs: [id]);
+  }
+}
+
+class PracticeService {
+  final dbService = DatabaseService();
+
+  Future<int> saveCard(String q, String a, String cat) async {
+    final db = await dbService.database;
+    return await db.insert('practice_bank', {
+      'question': q,
+      'answer': a,
+      'category': cat, // Stores the user-defined subject
+      'last_modified': DateTime.now().toIso8601String(),
+    });
+  }
+
+  Future<List<String>> getUniqueSubjects() async {
+    final db = await dbService.database;
+    final List<Map<String, dynamic>> maps = await db.rawQuery('SELECT DISTINCT category FROM practice_bank');
+    return maps.map((row) => row['category'] as String).toList();
+  }
+
+  Future<List<Map<String, dynamic>>> getFlashcards({String? subject}) async {
+    final db = await dbService.database;
+    if (subject == null || subject == 'All') {
+      return await db.query('practice_bank');
+    }
+    return await db.query('practice_bank', where: 'category = ?', whereArgs: [subject]);
+  }
+
+  Future<int> deleteCard(int id) async {
+    final db = await dbService.database;
+    return await db.delete('practice_bank', where: 'id = ?', whereArgs: [id]);
   }
 }
