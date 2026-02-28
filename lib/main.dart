@@ -30,6 +30,7 @@ class NetCodexApp extends StatelessWidget {
       valueListenable: themeNotifier,
       builder: (_, mode, __) {
         return MaterialApp(
+          debugShowCheckedModeBanner: false,
           themeMode: mode,
           // LIGHT THEME CONFIG
           theme: ThemeData(
@@ -158,6 +159,7 @@ class _PinGateScreenState extends State<PinGateScreen> with WidgetsBindingObserv
         if (!mounted) return;
         Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const Dashboard()));
       } else {
+        SecurityService.endSession();
         setState(() {
           _failedAttempts++;
           if (_failedAttempts >= 3) {
@@ -192,8 +194,12 @@ class _PinGateScreenState extends State<PinGateScreen> with WidgetsBindingObserv
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.security, size: 80, color: Colors.greenAccent),
-                const SizedBox(height: 20),
+                Image.asset(
+                    'assets/images/netcodexnbg.png',
+                    height: 250, // Increased height for better visual impact
+                    fit: BoxFit.contain,
+                  ),
+                const SizedBox(height: 5),
                 Text(
                   _isInitialized ? "UNLOCK VAULT" : "CREATE MASTER PIN", 
                   style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 2)
@@ -328,35 +334,64 @@ class Dashboard extends StatelessWidget {
       drawer: Drawer(
         child: Column(
           children: [
-            const DrawerHeader(
-              decoration: BoxDecoration(color: Colors.greenAccent),
+            DrawerHeader(
+              decoration: const BoxDecoration(color: Color.fromARGB(255, 58, 1, 63)),
               child: SizedBox(
                 width: double.infinity,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text("NetCodex v1.0",
-                        style: TextStyle(
-                            color: Colors.black, fontWeight: FontWeight.bold)),
-                    Spacer(),
-                    Text("Dionivel A. Alegado",
-                        style: TextStyle(
-                            color: Colors.black,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold)),
-                    Text("BS Computer Engineering 2026",
-                        style: TextStyle(color: Colors.black, fontSize: 10)),
+                    const Text(
+                      "NetCodex version 1.2",
+                      style: TextStyle(color: Colors.white30),
+                    ),
+                    const Spacer(),
+                    Text(
+                      "Dionivel A. Alegado",
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                        shadows: [
+                          Shadow(
+                            blurRadius: 8.0,
+                            color: Colors.amber.withValues(alpha: 0.8),
+                            offset: const Offset(0, 0),
+                          ),
+                          Shadow(
+                            blurRadius: 30.0,
+                            color: Colors.red.withValues(alpha: 0.5),
+                            offset: const Offset(0, 0),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Text(
+                      "BS Computer Engineering 2026",
+                      style: TextStyle(color: Colors.white, fontSize: 10),
+                    ),
                   ],
                 ),
               ),
             ),
             ListTile(
-              leading: const Icon(Icons.lan),
-              title: const Text("Infrastructure Ledger"),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(context,
-                    MaterialPageRoute(builder: (context) => const SiteExplorerScreen()));
+              leading: const Icon(Icons.shield_outlined, color: Colors.amberAccent),
+              title: const Text("Security Settings"),
+              subtitle: const Text("Manage PIN & Vault Access"),
+              onTap: () async {
+                // 1. Wait for verification
+                bool authorized = await _promptSimplePinVerify(context); 
+
+                // 2. THE FIX: Check if the screen is still active before using context again
+                if (!context.mounted) return;
+
+                if (authorized) {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context, 
+                    MaterialPageRoute(builder: (context) => const SecuritySettingsScreen())
+                  );
+                }
               },
             ),
             ListTile(
@@ -441,6 +476,46 @@ class Dashboard extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Future<bool> _promptSimplePinVerify(BuildContext context) async {
+    final TextEditingController controller = TextEditingController();
+    final theme = Theme.of(context); // Now being used below
+
+    return await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: Text(
+          "Verify Identity", 
+          style: TextStyle(color: theme.colorScheme.primary),
+        ),
+        content: TextField(
+          controller: controller,
+          obscureText: true,
+          keyboardType: TextInputType.number,
+          style: TextStyle(color: theme.colorScheme.onSurface),
+          decoration: const InputDecoration(hintText: "Enter Master PIN"),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text("CANCEL", style: TextStyle(color: theme.colorScheme.secondary)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: theme.colorScheme.primaryContainer,
+              foregroundColor: theme.colorScheme.onPrimaryContainer,
+            ),
+            onPressed: () async {
+              bool isValid = await SecurityService.verifyPin(controller.text);
+              if (context.mounted) Navigator.pop(context, isValid);
+            },
+            child: const Text("VERIFY"),
+          ),
+        ],
+      ),
+    ) ?? false;
   }
 
   Widget _buildMenuCard(BuildContext context, IconData icon, String title, String subtitle) {
@@ -1287,19 +1362,84 @@ class GlobalSearchDelegate extends SearchDelegate {
           itemCount: results.length,
           itemBuilder: (context, index) {
             final item = results[index];
-            return ListTile(
-              leading: Icon(_getIcon(item['origin']), color: theme.colorScheme.primary),
-              title: Text(item['display_title'], 
-                style: TextStyle(color: theme.colorScheme.onSurface, fontWeight: FontWeight.w500)),
-              subtitle: Text(
-                item['origin'].toUpperCase(),
-                style: TextStyle(fontSize: 10, color: theme.colorScheme.secondary, fontWeight: FontWeight.bold),
-              ),
-              onTap: () => _navigateToResult(context, item),
-            );
+            // Inside your ListView.builder for results
+              return ListTile(
+                leading: Icon(_getIcon(item['origin']), color: theme.colorScheme.primary),
+                title: Text(
+                  item['display_title'], 
+                  style: TextStyle(color: theme.colorScheme.onSurface, fontWeight: FontWeight.w500)
+                ),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item['origin'].toUpperCase(),
+                      style: TextStyle(fontSize: 10, color: theme.colorScheme.secondary, fontWeight: FontWeight.bold),
+                    ),
+                    if (item['origin'] == 'Note')
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4.0),
+                        child: _buildHighlightedText(
+                          _getNoteSnippet(item['content_text'], query), // Your snippet
+                          query,                                        // Your search term
+                          TextStyle(fontSize: 12, color: theme.colorScheme.onSurfaceVariant),
+                          theme.colorScheme.primary,                    // Highlight color
+                        ),
+                      ),
+                  ],
+                ),
+                onTap: () => _navigateToResult(context, item),
+              );
           },
         );
       },
+    );
+  }
+
+  Widget _buildHighlightedText(String text, String highlight, TextStyle style, Color highlightColor) {
+    if (highlight.isEmpty) return Text(text, style: style);
+
+    // Use a Regex that captures the exact match if possible, or case-insensitive if not
+    // This ensures that if you type 'RAM', it looks for 'RAM' specifically.
+    final List<TextSpan> spans = [];
+    
+    // We split the text using a pattern that captures the search term
+    // '(?i)' makes the regex case-insensitive for the splitting phase
+    final String pattern = '(${RegExp.escape(highlight)})';
+    final RegExp regex = RegExp(pattern, caseSensitive: false);
+    final List<String> parts = text.split(regex);
+    final Iterable<Match> matches = regex.allMatches(text);
+
+    int matchIndex = 0;
+    for (int i = 0; i < parts.length; i++) {
+      // Add the normal text part
+      if (parts[i].isNotEmpty) {
+        spans.add(TextSpan(text: parts[i]));
+      }
+
+      // Add the highlighted part if we haven't reached the end
+      if (matchIndex < matches.length) {
+        final String matchText = matches.elementAt(matchIndex).group(0)!;
+        
+        // Check if this specific match is an EXACT case match
+        bool isExactMatch = matchText == highlight;
+
+        spans.add(TextSpan(
+          text: matchText,
+          style: style.copyWith(
+            color: highlightColor,
+            fontWeight: FontWeight.bold,
+            backgroundColor: isExactMatch ? highlightColor.withValues(alpha: 0.2) : null,
+          ),
+        ));
+        matchIndex++;
+      }
+    }
+
+    return RichText(
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      text: TextSpan(style: style, children: spans),
     );
   }
 
@@ -1354,15 +1494,64 @@ class GlobalSearchDelegate extends SearchDelegate {
       where: 'name LIKE ? COLLATE NOCASE OR category LIKE ? COLLATE NOCASE', whereArgs: ['%$q%', '%$q%']);
     combined.addAll(tools.map((e) => {...e, 'origin': 'Tool Sheet', 'display_title': e['name']}));
 
-    // 6. Search Lecture Notes
-    final notes = await db.query('notes', 
-      where: 'title LIKE ? OR content_text LIKE ? COLLATE NOCASE', 
-      whereArgs: ['%$q%', '%$q%']);
-    combined.addAll(notes.map((e) => {
-      ...e, 
-      'origin': 'Note', 
-      'display_title': e['title']
-    }));
+    // 6. Search Lecture Notes (Intelligent Content Scanning)
+    final notes = await db.query('notes');
+    for (var row in notes) {
+      bool match = false;
+      bool exactCaseMatch = false; // Track if we found an exact "RAM" match
+      String title = row['title'].toString();
+      String rawContent = row['content_text'].toString();
+
+      // Check title first
+      if (title.toLowerCase().contains(q.toLowerCase())) {
+        match = true;
+        if (title.contains(q)) exactCaseMatch = true; // Exact case found in title
+      } 
+      
+      // If no title match or even if there is, scan content for exact case priority
+      try {
+        String plainText = "";
+        if (rawContent.startsWith('[')) {
+          List<dynamic> blocks = jsonDecode(rawContent);
+          plainText = blocks
+              .where((b) => b['type'] == 'text')
+              .map((b) => b['content'].toString())
+              .join(" ");
+        } else {
+          plainText = rawContent;
+        }
+
+        if (plainText.toLowerCase().contains(q.toLowerCase())) {
+          match = true;
+          if (plainText.contains(q)) exactCaseMatch = true; // Exact case found in content
+        }
+      } catch (_) {}
+
+      if (match) {
+        combined.add({
+          ...row,
+          'origin': 'Note',
+          'display_title': title,
+          'exact_case_match': exactCaseMatch ? 1 : 0, // 1 for priority, 0 for secondary
+        });
+      }
+    }
+
+    // --- FINAL STEP: SORTING ---
+    // Add this right before your return combined; statement
+    combined.sort((a, b) {
+      // 1. Prioritize by exact case match (e.g., 'RAM' over 'ram')
+      int aCase = a['exact_case_match'] ?? 0;
+      int bCase = b['exact_case_match'] ?? 0;
+      if (aCase != bCase) return bCase.compareTo(aCase);
+
+      // 2. Secondary priority: Matches in display_title over content
+      bool aTitle = a['display_title'].toString().toLowerCase().contains(q.toLowerCase());
+      bool bTitle = b['display_title'].toString().toLowerCase().contains(q.toLowerCase());
+      if (aTitle != bTitle) return aTitle ? -1 : 1;
+
+      return 0;
+    });
 
     return combined;
   }
@@ -1375,6 +1564,41 @@ class GlobalSearchDelegate extends SearchDelegate {
       case 'tool sheet': return Icons.handyman;
       case 'note': return Icons.edit_note;
       default: return Icons.terminal;
+    }
+  }
+
+  String _getNoteSnippet(String rawContent, String query) {
+    try {
+      String plainText = "";
+      // 1. Extract plain text from blocks
+      if (rawContent.trim().startsWith('[')) {
+        List<dynamic> blocks = jsonDecode(rawContent);
+        plainText = blocks
+            .where((b) => b['type'] == 'text')
+            .map((b) => b['content'].toString())
+            .join(" ");
+      } else {
+        plainText = rawContent;
+      }
+
+      // 2. Intelligent Indexing: Try exact case match first
+      int index = plainText.indexOf(query); 
+      
+      // 3. Fallback: If no exact case match, find the first case-insensitive match
+      if (index == -1) {
+        index = plainText.toLowerCase().indexOf(query.toLowerCase());
+      }
+
+      // 4. If still no match found, return the start of the text
+      if (index == -1) return plainText;
+
+      // 5. Calculate window: Start 20 characters before the match
+      int start = (index - 20).clamp(0, plainText.length);
+      String prefix = start > 0 ? "..." : "";
+      
+      return "$prefix${plainText.substring(start)}".trim();
+    } catch (_) {
+      return "";
     }
   }
 

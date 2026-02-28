@@ -2,7 +2,7 @@ name: netcodex
 description: "An all-around tool for “offline-first” documentation, primarily designed for network professionals."
 publish_to: 'none'
 
-version: 1.0.0+1
+version: 1.2.0+2
 
 environment:
   sdk: ^3.5.0
@@ -12,6 +12,8 @@ dependencies:
     sdk: flutter
   flutter_markdown: ^0.7.5
   cupertino_icons: ^1.0.8
+  pdf: ^3.11.0
+  printing: ^5.11.0
 
   # --- Phase 1: Core Infrastructure & Security ---
   sqflite: ^2.3.0 
@@ -33,6 +35,15 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.0
+  flutter_launcher_icons: "^0.13.1"
+  rename: ^3.0.0
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/images/netcodex_icon.png"
+  adaptive_icon_background: "#001A1A"
+  adaptive_icon_foreground: "assets/images/netcodex_icon.png"
 
 flutter:
   uses-material-design: true

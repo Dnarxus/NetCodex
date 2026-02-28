@@ -48,6 +48,8 @@ app.*.map.json
 # Ignore the local SQLite database
 *.db
 *.db-journal
+.flutter-plugins-dependencies
+**/.flutter-plugins-dependencies
 *.db-shm
 *.db-wal
 
@@ -61,3 +63,8 @@ app_assets/
 # Ignore user-specific environment or temporary files
 .env
 *.tmp
+
+# Android signing secrets (if you create them)
+*.jks
+*.keystore
+key.properties

@@ -115,6 +115,9 @@ class MigrationService {
       bool hasCore = tableNames.contains('site_folders') && 
                      tableNames.contains('go_bag_tools') &&
                      tableNames.contains('passwords') &&
+                     tableNames.contains('notes') &&
+                     tableNames.contains('note_versions') &&
+                     tableNames.contains('practice_bank') &&
                      tableNames.contains('vault_metadata');
 
       await tempDb.close();
